@@ -392,7 +392,7 @@ class AgencyOutreachApp(QMainWindow):
         self.smtp_port.setValue(2525)
         self.smtp_port.setMinimumHeight(35)
         smtp_layout.addRow("SMTP Port:", self.smtp_port)
-        
+        #something
         self.smtp_username = QLineEdit("username")
         self.smtp_username.setMinimumHeight(35)
         smtp_layout.addRow("Username:", self.smtp_username)

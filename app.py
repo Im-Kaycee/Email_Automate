@@ -393,11 +393,11 @@ class AgencyOutreachApp(QMainWindow):
         self.smtp_port.setMinimumHeight(35)
         smtp_layout.addRow("SMTP Port:", self.smtp_port)
         
-        self.smtp_username = QLineEdit("c3ba932e1864a1")
+        self.smtp_username = QLineEdit("username")
         self.smtp_username.setMinimumHeight(35)
         smtp_layout.addRow("Username:", self.smtp_username)
         
-        self.smtp_password = QLineEdit("2ebaa6023c9195")
+        self.smtp_password = QLineEdit("password")
         self.smtp_password.setEchoMode(QLineEdit.EchoMode.Password)
         self.smtp_password.setMinimumHeight(35)
         smtp_layout.addRow("Password:", self.smtp_password)

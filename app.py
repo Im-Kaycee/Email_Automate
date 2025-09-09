@@ -12,7 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from PySide6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                               QHBoxLayout, QPushButton, QLabel, QTextEdit, 
+                               QHBoxLayout, QPushButton, QLabel, QPlainTextEdit, 
                                QProgressBar, QTabWidget, QFileDialog, QSpinBox,
                                QLineEdit, QFormLayout, QGroupBox, QCheckBox,
                                QTableWidget, QTableWidgetItem, QHeaderView,
@@ -103,13 +103,12 @@ class EmailSenderThread(QThread):
     email_sent = Signal(str, bool, str)
     finished = Signal(int, int)
     
-    def __init__(self, emails, smtp_config, sender_email, subject, html_content, plain_text):
+    def __init__(self, emails, smtp_config, sender_email, subject, plain_text):
         super().__init__()
         self.emails = emails
         self.smtp_config = smtp_config
         self.sender_email = sender_email
         self.subject = subject
-        self.html_content = html_content
         self.plain_text = plain_text
         
     def run(self):
@@ -122,15 +121,15 @@ class EmailSenderThread(QThread):
         
         for i, email in enumerate(self.emails):
             try:
-                # Create MIME multipart message for HTML emails
-                msg = MIMEMultipart('alternative')
+                # Create MIME multipart message for text emails
+                msg = MIMEMultipart()
                 msg['Subject'] = self.subject
                 msg['From'] = self.sender_email
                 msg['To'] = email
                 
-                # Add both plain text and HTML versions
+                # Add  plain text 
                 msg.attach(MIMEText(self.plain_text, 'plain'))
-                msg.attach(MIMEText(self.html_content, 'html'))
+               
                 
                 with smtplib.SMTP(self.smtp_config['host'], self.smtp_config['port']) as server:
                     server.starttls()
@@ -221,17 +220,9 @@ class AgencyOutreachApp(QMainWindow):
         from PySide6.QtGui import QShortcut, QKeySequence
         self.shortcut_fullscreen = QShortcut(QKeySequence("F11"), self)
         self.shortcut_fullscreen.activated.connect(self.toggle_fullscreen)
-        
-        # Load default template
-        self.email_template = self.load_default_template()
-        
         self.setWindowTitle("Professional Agency Outreach Tool")
         self.setup_ui()
         self.apply_theme()
-        
-        # Load template into editor after UI is setup
-        self.load_template_into_editor()
-        
     def setup_ui(self):
         # Create a central widget and main layout
         central_widget = QWidget()
@@ -421,62 +412,17 @@ class AgencyOutreachApp(QMainWindow):
         subject_layout.addWidget(self.email_subject)
         content_layout.addLayout(subject_layout)
 
+        # Add plain text editor for email body
+        self.email_message = QPlainTextEdit()
+        self.email_message.setPlaceholderText("Write your email message here...")
+        self.email_message.setVisible(True)
+        content_layout.addWidget(self.email_message)
+
         email_layout.addWidget(content_group)
 
-       
-        template_group = QGroupBox("Email Template Editor")
-        template_layout = QVBoxLayout(template_group)
-        template_layout.setContentsMargins(10, 15, 10, 10)
-        template_layout.setSpacing(10)
-
-        # Template control buttons
-        editor_buttons = QHBoxLayout()
-        self.load_template_btn = ProfessionalButton("📁 Load Template")
-        self.load_template_btn.clicked.connect(self.load_custom_template)
-        editor_buttons.addWidget(self.load_template_btn)
-
-        self.save_template_btn = ProfessionalButton("💾 Save Template")
-        self.save_template_btn.clicked.connect(self.save_template)
-        editor_buttons.addWidget(self.save_template_btn)
-
-        self.preview_btn = ProfessionalButton("👁️ Toggle Preview")
-        self.preview_btn.clicked.connect(self.toggle_preview)
-        editor_buttons.addWidget(self.preview_btn)
-
-        editor_buttons.addStretch()
-        template_layout.addLayout(editor_buttons)
-
-        # Splitter for editor and preview
-        splitter = QSplitter(Qt.Orientation.Horizontal)
-
-        # HTML Editor (left side)
-        editor_widget = QWidget()
-        editor_layout = QVBoxLayout(editor_widget)
-        editor_layout.setContentsMargins(0, 0, 0, 0)
-
-        # HTML source editor
-        self.html_editor = QTextEdit()
-        self.html_editor.setPlaceholderText("Edit your HTML template here...")
-        self.html_editor.textChanged.connect(self.update_preview)
-        editor_layout.addWidget(self.html_editor)
-
-        splitter.addWidget(editor_widget)
-
-        # HTML Preview (right side) - initially hidden
-        self.preview_widget = QWebEngineView()
-        self.preview_widget.setVisible(False)  # Start hidden
-        splitter.addWidget(self.preview_widget)
-
-        # Set splitter sizes
-        splitter.setSizes([400, 200])
-        splitter.setMinimumHeight(400)
-
-        template_layout.addWidget(splitter)
-        email_layout.addWidget(template_group)
-
         # Hide the old plain text editor (keep it for compatibility but hide it)
-        self.email_message = QTextEdit()
-        self.email_message.setVisible(False)
+        #self.email_message = QTextEdit()
+        #self.email_message.setVisible(True)
         
         # Email list management
         list_group = QGroupBox("Email List")
@@ -497,7 +443,7 @@ class AgencyOutreachApp(QMainWindow):
         file_layout.addStretch()
         list_layout.addLayout(file_layout)
         
-        self.email_list = QTextEdit()
+        self.email_list = QPlainTextEdit()
         self.email_list.setPlaceholderText("Email addresses will appear here...")
         list_layout.addWidget(self.email_list)
         
@@ -636,9 +582,9 @@ class AgencyOutreachApp(QMainWindow):
             'password': self.smtp_password.text()
         }
         
-        # GET CONTENT FROM HTML EDITOR INSTEAD OF PLAIN TEXT EDITOR
-        html_content = self.html_editor.toHtml()
-        plain_text = self.html_editor.toPlainText()  
+        subject = self.email_subject.text()
+        plain_text = self.email_message.toPlainText()
+        html_content = None  # Not used for text-based emails
         
         self.email_progress.setVisible(True)
         self.email_status_label.setVisible(True)
@@ -646,7 +592,7 @@ class AgencyOutreachApp(QMainWindow):
         
         self.email_thread = EmailSenderThread(
             emails, smtp_config, self.sender_email.text(),
-            self.email_subject.text(), html_content, plain_text 
+            subject, plain_text  # Use plain text for both
         )
         self.email_thread.progress_updated.connect(self.update_email_progress)
         self.email_thread.email_sent.connect(self.email_sent_callback)
@@ -814,120 +760,8 @@ class AgencyOutreachApp(QMainWindow):
         else:
             self.menuBar().hide()  
             self.showFullScreen()
-    def load_default_template(self):
-        """Load or create default HTML template"""
-        template_path = "templates/professional_email.html"
-        os.makedirs("templates", exist_ok=True)
-        
-        if os.path.exists(template_path):
-            try:
-                with open(template_path, 'r', encoding='utf-8') as file:
-                    return file.read()
-            except:
-                return self.create_default_template()
-        else:
-            return self.create_default_template()
-
-    def create_default_template(self):
-        """Create a default professional HTML template"""
-        default_template = """<!DOCTYPE html>
-    <html>
-    <head>
-        <meta charset="utf-8">
-        <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background-color: #2B5CE6; color: white; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
-            .content { padding: 20px; background-color: #f9f9f9; border-radius: 0 0 8px 8px; }
-            .button { display: inline-block; padding: 12px 24px; background-color: #2B5CE6; color: white; text-decoration: none; border-radius: 5px; }
-            .footer { margin-top: 20px; padding: 15px; text-align: center; font-size: 12px; color: #666; border-top: 1px solid #ddd; }
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>Business Partnership Opportunity</h1>
-        </div>
-        
-        <div class="content">
-            <p>Dear Team,</p>
-            
-            <p>I hope this message finds you well. I'm reaching out to explore potential business partnership opportunities.</p>
-            
-            <p>We specialize in digital marketing solutions and believe there could be significant synergy between our services.</p>
-            
-            <p>Would you be interested in a brief conversation to discuss how we might work together?</p>
-            
-            <p style="text-align: center;">
-                <a href="mailto:your.email@example.com" class="button">Schedule a Call</a>
-            </p>
-            
-            <p>Best regards,<br>
-            <strong>Your Name</strong><br>
-            Business Development Manager</p>
-        </div>
-        
-        <div class="footer">
-            <p>© 2024 Your Company. All rights reserved.</p>
-        </div>
-    </body>
-    </html>"""
-        
-        # Save the default template
-        try:
-            with open("templates/professional_email.html", 'w', encoding='utf-8') as file:
-                file.write(default_template)
-        except:
-            pass
-            
-        return default_template
-
-    def load_template_into_editor(self):
-        """Load current template into the HTML editor"""
-        self.html_editor.setHtml(self.email_template)
-        
-    def update_preview(self):
-        """Update the HTML preview when editor content changes"""
-        html_content = self.html_editor.toHtml()
-        self.preview_widget.setHtml(html_content)
-        self.email_template = html_content  # Update the template
-        
-    def toggle_preview(self):
-        """Toggle HTML preview visibility"""
-        self.preview_widget.setVisible(not self.preview_widget.isVisible())
-        if self.preview_widget.isVisible():
-            self.update_preview()  # Refresh preview when showing
-        
-    def save_template(self):
-        """Save the current template to file"""
-        filename, _ = QFileDialog.getSaveFileName(
-            self, "Save HTML Template", "templates/professional_email.html", 
-            "HTML files (*.html *.htm)"
-        )
-        if filename:
-            try:
-                # Create directory if it doesn't exist
-                os.makedirs(os.path.dirname(filename), exist_ok=True)
-                
-                with open(filename, 'w', encoding='utf-8') as file:
-                    file.write(self.html_editor.toHtml())
-                QMessageBox.information(self, "Success", "Template saved successfully!")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to save template: {str(e)}")
-
-    def load_custom_template(self):
-        """Load a custom HTML template file into editor"""
-        filename, _ = QFileDialog.getOpenFileName(
-            self, "Load HTML Template", "", "HTML files (*.html *.htm)"
-        )
-        if filename:
-            try:
-                with open(filename, 'r', encoding='utf-8') as file:
-                    content = file.read()
-                    self.html_editor.setHtml(content)
-                    self.email_template = content
-                    self.update_preview()
-                    QMessageBox.information(self, "Success", "Template loaded successfully!")
-            except Exception as e:
-                QMessageBox.critical(self, "Error", f"Failed to load template: {str(e)}")
+    
+    
 
 def main():
     app = QApplication(sys.argv)
